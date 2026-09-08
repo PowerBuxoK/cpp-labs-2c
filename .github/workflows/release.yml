@@ -35,8 +35,9 @@ jobs:
       - name: Package
         run: cmake --build build --config Release --target package
 
+      # 6. Upload compiled binaries to workflow storage using modern v4
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.os }}
           path: |
@@ -50,29 +51,17 @@ jobs:
     permissions: write-all
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create and Upload Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.0.${{ github.run_number }}
-          release_name: Release 0.0.${{ github.run_number }}
+          name: Release 0.0.${{ github.run_number }}
           draft: false
           prerelease: false
-
-      - name: Upload Linux Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./packages-ubuntu-latest/helloworld-0.0.${{ github.run_number }}-Linux.deb
-          asset_name: helloworld-0.0.${{ github.run_number }}-Linux.deb
-          asset_content_type: application/vnd.debian.binary-package
-
-      - name: Upload Windows Asset
-        run: |
-          echo "If CPack generates a .msi or .zip on Windows, add a matching upload step here."
+          files: |
+            ./artifacts/packages-ubuntu-latest/*
+            ./artifacts/packages-windows-latest/*
