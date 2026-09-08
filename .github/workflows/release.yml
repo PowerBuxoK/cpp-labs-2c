@@ -34,12 +34,12 @@ jobs:
         run: cmake --build build --config Release
 
       - name: Test
-        run: cmake --build build --config Release --target test
+        working-directory: ${{ github.workspace }}/build
+        run: ctest -C Release --output-on-failure
 
       - name: Package
         run: cmake --build build --config Release --target package
 
-      # 6. Upload compiled binaries to workflow storage using modern v4
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
