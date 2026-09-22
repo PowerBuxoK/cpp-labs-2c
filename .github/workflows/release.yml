@@ -11,9 +11,10 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-
+    
     runs-on: ${{ matrix.os }}
     permissions: write-all
+    
     steps:
       - uses: actions/checkout@v3
         with:
@@ -21,38 +22,49 @@ jobs:
 
       - name: Install Linux Dependencies
         if: matrix.os == 'ubuntu-latest'
-        run: sudo apt-get update && sudo apt-get install libboost-test-dev -y
-        
+        run: |
+          sudo apt-get update && \
+          sudo apt-get install -y libboost-test-dev build-essential
+
       - name: Install Windows Dependencies
         if: matrix.os == 'windows-latest'
-        run: choco install boost-msvc-14.3
         
+        run: choco install boost-msvc-14.3
+
       - name: Configure CMake
-        run: cmake -B build -DPATCH_VERSION=${{ github.run_number }} -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build \
+          -DPATCH_VERSION=${{ github.run_number }} \
+          -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release
 
       - name: Test
-        working-directory: ${{ github.workspace }}/build
+        working-directory: ./build
         run: ctest -C Release --output-on-failure
 
-      - name: Package
-        run: cmake --build build --config Release --target package
+      - name: Package Artifacts
+        working-directory: ./build
+        run: cmake --build . --config Release --target package
 
-      - name: Upload Artifact
+      - name: Clean Build Directory
+        if: always() 
+        run: rm -rf build
+
+      - name: Upload Artifacts for ${{ matrix.os }}
         uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.os }}
           path: |
-            build/*.deb
-            build/*.msi
-            build/*.zip
+            ${{ runner.os == 'Linux' && 'build/*.deb' || '' }}
+            ${{ runner.os == 'Windows' && 'build/*.msi' || '' }}
+            ${{ runner.os != 'Windows' && 'build/*.zip' || '' }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    permissions: write-all
+    permissions: write-all 
+    
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -69,3 +81,4 @@ jobs:
           files: |
             ./artifacts/packages-ubuntu-latest/*
             ./artifacts/packages-windows-latest/*
+
