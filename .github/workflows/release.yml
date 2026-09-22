@@ -11,10 +11,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-    
+
     runs-on: ${{ matrix.os }}
     permissions: write-all
-    
     steps:
       - uses: actions/checkout@v3
         with:
@@ -22,49 +21,46 @@ jobs:
 
       - name: Install Linux Dependencies
         if: matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update && \
-          sudo apt-get install -y libboost-test-dev build-essential
-
+        run: sudo apt-get update && sudo apt-get install libboost-test-dev -y
+        
       - name: Install Windows Dependencies
         if: matrix.os == 'windows-latest'
+        run: vcpkg install boost-unit-test:x86-windows
         
-        run: choco install boost-msvc-14.3
-
-      - name: Configure CMake
-        run: cmake -B build \
-          -DPATCH_VERSION=${{ github.run_number }} \
-          -DCMAKE_BUILD_TYPE=Release
+      - name: Configure CMake Linux
+        if: matrix.os != 'windows-latest'
+        run: "cmake -B build -DPATCH_VERSION=${{ github.run_number }} \
+              -DCMAKE_BUILD_TYPE=Release"
+              
+      - name: Configure CMake Windows
+        if: matrix.os == 'windows-latest'
+        run: "cmake -B build -DPATCH_VERSION=${{ github.run_number }} \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE=${{ runner.temp }}/vcpkg_installed/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
         run: cmake --build build --config Release
 
       - name: Test
-        working-directory: ./build
+        working-directory: ${{ github.workspace }}/build
         run: ctest -C Release --output-on-failure
 
-      - name: Package Artifacts
-        working-directory: ./build
-        run: cmake --build . --config Release --target package
+      - name: Package
+        run: cmake --build build --config Release --target package
 
-      - name: Clean Build Directory
-        if: always() 
-        run: rm -rf build
-
-      - name: Upload Artifacts for ${{ matrix.os }}
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.os }}
           path: |
-            ${{ runner.os == 'Linux' && 'build/*.deb' || '' }}
-            ${{ runner.os == 'Windows' && 'build/*.msi' || '' }}
-            ${{ runner.os != 'Windows' && 'build/*.zip' || '' }}
+            build/*.deb
+            build/*.msi
+            build/*.zip
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    permissions: write-all 
-    
+    permissions: write-all
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -81,4 +77,3 @@ jobs:
           files: |
             ./artifacts/packages-ubuntu-latest/*
             ./artifacts/packages-windows-latest/*
-
