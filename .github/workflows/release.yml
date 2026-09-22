@@ -36,7 +36,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: "cmake -B build -DPATCH_VERSION=${{ github.run_number }} \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_TOOLCHAIN_FILE=${{ runner.temp }}/vcpkg_installed/scripts/buildsystems/vcpkg.cmake"
+              -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
         run: cmake --build build --config Release
